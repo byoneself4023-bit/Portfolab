@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { portfolioAPI, stockAPI, simulationAPI } from '../api';
+import { portfolioAPI, stockAPI, simulationAPI, aiAPI } from '../api';
 
 interface Stock {
   stock_no: number;
@@ -25,6 +25,12 @@ interface SimulationChange {
   quantity?: number;
   price?: number;
   name?: string;
+}
+
+interface AIAnalysis {
+  risk_analysis: string;
+  recommendation: string;
+  overall_comment: string;
 }
 
 // 지표 해석 함수들
@@ -59,6 +65,11 @@ export default function Simulation() {
   const [newStockNo, setNewStockNo] = useState<number | null>(null);
   const [newQuantity, setNewQuantity] = useState('');
   const [newPrice, setNewPrice] = useState('');
+
+  // AI 분석 상태
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -142,6 +153,24 @@ export default function Simulation() {
     }
   };
 
+  // AI 분석 실행
+  const runAiAnalysis = async () => {
+    setAiLoading(true);
+    setShowAiPanel(true);
+    try {
+      const response = await aiAPI.analyze(portfolioNo);
+      if (response.data.success) {
+        setAiAnalysis(response.data.data);
+      } else {
+        alert(response.data.message || 'AI 분석 실패');
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'AI 분석에 실패했습니다.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
@@ -177,9 +206,21 @@ export default function Simulation() {
               <p className="text-[10px] text-white/40 tracking-[0.2em] uppercase">Simulation</p>
             </div>
           </Link>
-          <Link to={`/portfolio/${portfolioNo}`} className="text-white/40 hover:text-white text-sm transition-all hover:bg-white/5 px-4 py-2 rounded-lg">
-            ← 포트폴리오로
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={runAiAnalysis}
+              disabled={aiLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-lg hover:from-cyan-500/30 hover:to-blue-500/30 transition-all text-sm text-cyan-400"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              {aiLoading ? 'AI 분석 중...' : 'AI 분석'}
+            </button>
+            <Link to={`/portfolio/${portfolioNo}`} className="text-white/40 hover:text-white text-sm transition-all hover:bg-white/5 px-4 py-2 rounded-lg">
+              ← 포트폴리오로
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -188,6 +229,83 @@ export default function Simulation() {
           <h1 className="text-2xl font-bold mb-2">포트폴리오 시뮬레이터</h1>
           <p className="text-white/40">종목을 추가하거나 수량을 변경하면 예상 수익과 리스크를 미리 확인할 수 있어요</p>
         </div>
+
+        {/* AI 분석 패널 */}
+        {showAiPanel && (
+          <div className="mb-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-cyan-400">AI 포트폴리오 분석</h2>
+                  <p className="text-white/40 text-xs">Gemini AI가 분석한 투자 조언</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiPanel(false)}
+                className="text-white/30 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {aiLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
+                  <p className="text-white/50 text-sm">AI가 포트폴리오를 분석하고 있어요...</p>
+                </div>
+              </div>
+            ) : aiAnalysis ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 리스크 분석 */}
+                <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-3 h-3 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-orange-400">리스크 분석</h3>
+                  </div>
+                  <p className="text-white/70 text-sm leading-relaxed">{aiAnalysis.risk_analysis}</p>
+                </div>
+
+                {/* 투자 제안 */}
+                <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-emerald-400">투자 제안</h3>
+                  </div>
+                  <p className="text-white/70 text-sm leading-relaxed">{aiAnalysis.recommendation}</p>
+                </div>
+
+                {/* 종합 코멘트 */}
+                <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-purple-400">종합 평가</h3>
+                  </div>
+                  <p className="text-white/70 text-sm leading-relaxed">{aiAnalysis.overall_comment}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Holdings & Changes */}

@@ -68,4 +68,13 @@ export const simulationAPI = {
     api.post(`/simulation/${portfolioNo}/preview`, { changes }),
 };
 
+// AI API
+export const aiAPI = {
+  analyze: (portfolioNo: number) => api.get(`/ai/analyze/${portfolioNo}`),
+  rebalance: (portfolioNo: number, targetVolatility?: number) =>
+    api.get(`/ai/rebalance/${portfolioNo}${targetVolatility ? `?target=${targetVolatility}` : ''}`),
+  explainMetrics: (volatility: number, sharpeRatio: number) =>
+    api.get(`/ai/explain?volatility=${volatility}&sharpe=${sharpeRatio}`),
+};
+
 export default api;
