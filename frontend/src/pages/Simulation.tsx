@@ -27,6 +27,23 @@ interface SimulationChange {
   name?: string;
 }
 
+// 지표 해석 함수들
+const getVolatilityInfo = (vol: number) => {
+  if (vol < 15) return { level: '매우 낮음', color: 'text-blue-400', desc: '국채/예금 수준의 안정적인 포트폴리오입니다.' };
+  if (vol < 25) return { level: '낮음', color: 'text-emerald-400', desc: '대형 우량주 수준으로 안정적입니다.' };
+  if (vol < 35) return { level: '보통', color: 'text-yellow-400', desc: '일반적인 주식 포트폴리오 수준입니다.' };
+  if (vol < 50) return { level: '높음', color: 'text-orange-400', desc: '변동성이 높아 주의가 필요합니다.' };
+  return { level: '매우 높음', color: 'text-red-400', desc: '고위험 포트폴리오입니다. 분산투자를 권장합니다.' };
+};
+
+const getSharpeInfo = (sharpe: number) => {
+  if (sharpe < 0) return { level: '나쁨', color: 'text-red-400', desc: '무위험 수익률보다 낮습니다. 포트폴리오 재검토가 필요합니다.' };
+  if (sharpe < 0.5) return { level: '부족', color: 'text-orange-400', desc: '위험 대비 수익이 낮습니다. 개선이 필요합니다.' };
+  if (sharpe < 1.0) return { level: '양호', color: 'text-yellow-400', desc: '적정 수준입니다. 조금 더 개선 가능합니다.' };
+  if (sharpe < 2.0) return { level: '우수', color: 'text-emerald-400', desc: '좋은 투자입니다. 위험 대비 수익이 우수합니다.' };
+  return { level: '매우 우수', color: 'text-blue-400', desc: '뛰어난 투자입니다. 현재 전략을 유지하세요.' };
+};
+
 export default function Simulation() {
   const { id } = useParams();
   const portfolioNo = Number(id);
@@ -168,8 +185,8 @@ export default function Simulation() {
 
       <main className="relative max-w-7xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-2">What-if 시뮬레이션</h1>
-          <p className="text-white/40">포트폴리오 변경 시 예상 결과를 미리 확인해보세요</p>
+          <h1 className="text-2xl font-bold mb-2">포트폴리오 시뮬레이터</h1>
+          <p className="text-white/40">종목을 추가하거나 수량을 변경하면 예상 수익과 리스크를 미리 확인할 수 있어요</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -327,27 +344,71 @@ export default function Simulation() {
                   </div>
                 </div>
 
-                {/* Risk */}
+                {/* Risk with Explanation */}
                 <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-                  <p className="text-white/40 text-xs tracking-widest uppercase mb-3">리스크 지표</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/40">변동성</span>
-                      <div>
-                        <span>{result.after.risk.portfolio_volatility}%</span>
-                        <span className={`ml-2 text-xs ${result.diff.portfolio_volatility <= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <p className="text-white/40 text-xs tracking-widest uppercase mb-3">리스크 분석</p>
+                  
+                  {/* 변동성 */}
+                  <div className="mb-4 p-3 bg-white/[0.02] rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white/60">변동성</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">{result.after.risk.portfolio_volatility}%</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${getVolatilityInfo(result.after.risk.portfolio_volatility).color} bg-white/5`}>
+                          {getVolatilityInfo(result.after.risk.portfolio_volatility).level}
+                        </span>
+                        <span className={`text-xs ${result.diff.portfolio_volatility <= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           ({result.diff.portfolio_volatility >= 0 ? '+' : ''}{result.diff.portfolio_volatility}%p)
                         </span>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/40">샤프비율</span>
-                      <div>
-                        <span>{result.after.risk.sharpe_ratio}</span>
-                        <span className={`ml-2 text-xs ${result.diff.sharpe_ratio >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <p className="text-white/40 text-xs">
+                      {getVolatilityInfo(result.after.risk.portfolio_volatility).desc}
+                    </p>
+                  </div>
+
+                  {/* 샤프비율 */}
+                  <div className="p-3 bg-white/[0.02] rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white/60">샤프비율</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">{result.after.risk.sharpe_ratio}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSharpeInfo(result.after.risk.sharpe_ratio).color} bg-white/5`}>
+                          {getSharpeInfo(result.after.risk.sharpe_ratio).level}
+                        </span>
+                        <span className={`text-xs ${result.diff.sharpe_ratio >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           ({result.diff.sharpe_ratio >= 0 ? '+' : ''}{result.diff.sharpe_ratio})
                         </span>
                       </div>
+                    </div>
+                    <p className="text-white/40 text-xs">
+                      {getSharpeInfo(result.after.risk.sharpe_ratio).desc}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 투자 조언 */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-400 mb-1">투자 조언</p>
+                      <p className="text-white/60 text-xs leading-relaxed">
+                        {result.after.risk.portfolio_volatility > 35 && result.after.risk.sharpe_ratio < 0.5 
+                          ? '변동성이 높고 샤프비율이 낮습니다. ETF나 대형주 비중을 늘려 안정성을 높이는 것을 권장합니다.'
+                          : result.after.risk.portfolio_volatility > 35
+                          ? '변동성이 다소 높습니다. 분산투자를 통해 리스크를 줄이는 것을 고려해보세요.'
+                          : result.after.risk.sharpe_ratio < 0.5
+                          ? '위험 대비 수익률이 낮습니다. 수익성이 더 좋은 종목으로 교체를 고려해보세요.'
+                          : result.after.risk.sharpe_ratio >= 1.0
+                          ? '훌륭한 포트폴리오입니다! 현재 전략을 유지하면서 시장 상황을 모니터링하세요.'
+                          : '적정 수준의 포트폴리오입니다. 꾸준한 리밸런싱으로 성과를 개선할 수 있습니다.'
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
