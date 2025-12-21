@@ -1,152 +1,141 @@
 # -*- coding: utf-8 -*-
+import google.generativeai as genai
 import os
-import requests
-from services import analysis as analysis_service
+import json
+
+# Gemini API 설정
+genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-
-
-def get_portfolio_comment(portfolio_no):
-    """
-    Claude API를 사용하여 포트폴리오 분석 코멘트 생성
-    """
+def analyze_portfolio(portfolio_data):
+    """포트폴리오 종합 분석 및 AI 조언"""
     try:
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            return None, "Claude API 키가 설정되지 않았습니다."
+        prompt = f"""
+당신은 전문 투자 어드바이저입니다. 다음 포트폴리오를 분석하고 한국어로 조언해주세요.
+
+## 포트폴리오 정보
+- 총 투자금액: {portfolio_data['total_invested']:,}원
+- 총 평가금액: {portfolio_data['total_value']:,}원
+- 총 수익률: {portfolio_data['total_return']}%
+- 변동성: {portfolio_data['volatility']}%
+- 샤프비율: {portfolio_data['sharpe_ratio']}
+
+## 보유 종목
+{json.dumps(portfolio_data['stocks'], ensure_ascii=False, indent=2)}
+
+## 요청사항
+다음 3가지를 JSON 형식으로 답변해주세요:
+
+1. "risk_analysis": 변동성과 샤프비율에 대한 해석 (2-3문장)
+2. "recommendation": 구체적인 매수/매도 제안 (2-3문장)  
+3. "overall_comment": 포트폴리오 종합 평가 및 조언 (3-4문장)
+
+JSON 형식으로만 답변하세요:
+{{"risk_analysis": "...", "recommendation": "...", "overall_comment": "..."}}
+"""
         
-        # 포트폴리오 분석 데이터 수집
-        summary, err = analysis_service.get_portfolio_summary(portfolio_no)
-        if err:
-            return None, err
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
         
-        risk, err = analysis_service.get_risk_metrics(portfolio_no)
-        if err:
-            return None, err
+        # JSON 파싱 시도
+        if result_text.startswith('```'):
+            result_text = result_text.split('```')[1]
+            if result_text.startswith('json'):
+                result_text = result_text[4:]
         
-        sector, err = analysis_service.get_sector_distribution(portfolio_no)
-        if err:
-            return None, err
+        result = json.loads(result_text)
+        return result, None
         
-        # 프롬프트 구성
-        prompt = _build_analysis_prompt(summary, risk, sector)
-        
-        # Claude API 호출
-        response = _call_claude_api(api_key, prompt)
-        
-        if not response:
-            return None, "AI 분석 요청에 실패했습니다."
-        
+    except json.JSONDecodeError:
+        # JSON 파싱 실패 시 텍스트 그대로 반환
         return {
-            "comment": response.get('comment', ''),
-            "suggestions": response.get('suggestions', []),
-            "analysis_data": {
-                "summary": summary,
-                "risk": risk,
-                "sector": sector
-            }
+            "risk_analysis": "분석 중 오류가 발생했습니다.",
+            "recommendation": "다시 시도해주세요.",
+            "overall_comment": response.text if response else "AI 응답을 받지 못했습니다."
         }, None
     except Exception as e:
         return None, str(e)
 
 
-def _build_analysis_prompt(summary, risk, sector):
-    """분석 프롬프트 구성"""
-    stocks_info = ""
-    for s in summary.get('stocks', []):
-        stocks_info += f"- {s['name']}({s['symbol']}): 비중 {s['weight']}%, 수익률 {s['return_pct']}%\n"
-    
-    sectors_info = ""
-    for s in sector.get('sectors', []):
-        sectors_info += f"- {s['sector']}: {s['weight']}%\n"
-    
-    prompt = f"""
-다음은 한 투자자의 포트폴리오 분석 데이터입니다. 이 데이터를 바탕으로 포트폴리오의 장단점을 분석하고, 
-개선을 위한 구체적인 제안을 해주세요.
-
-## 포트폴리오 요약
-- 총 투자금액: {summary.get('total_invested', 0):,}원
-- 총 평가금액: {summary.get('total_value', 0):,}원
-- 총 수익률: {summary.get('total_return', 0)}%
-- 총 손익: {summary.get('total_profit', 0):,}원
-
-## 보유 종목
-{stocks_info}
-
-## 리스크 지표
-- 포트폴리오 변동성: {risk.get('portfolio_volatility', 0)}%
-- 샤프 비율: {risk.get('sharpe_ratio', 0)}
-
-## 섹터 분포
-{sectors_info}
-
-위 정보를 바탕으로 다음 형식으로 답변해주세요:
-
-1. 먼저 이 포트폴리오의 전반적인 상태를 2-3문장으로 평가해주세요.
-2. 주요 장점을 2-3가지 알려주세요.
-3. 개선이 필요한 부분을 2-3가지 알려주세요.
-4. 구체적인 개선 제안을 3가지 해주세요. (예: "A 종목 비중을 10% 줄이고 B 섹터 ETF를 추가하세요")
-
-답변은 한국어로, 투자 초보자도 이해할 수 있게 쉽게 설명해주세요.
-"""
-    return prompt
-
-
-def _call_claude_api(api_key, prompt):
-    """Claude API 호출"""
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01"
-    }
-    
-    data = {
-        "model": "claude-sonnet-4-20250514",
-        "max_tokens": 1500,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    }
-    
+def get_rebalancing_suggestion(portfolio_data, target_volatility=30):
+    """목표 변동성에 맞는 리밸런싱 제안"""
     try:
-        response = requests.post(ANTHROPIC_API_URL, headers=headers, json=data, timeout=30)
-        response.raise_for_status()
+        prompt = f"""
+당신은 포트폴리오 리밸런싱 전문가입니다.
+
+## 현재 포트폴리오
+- 현재 변동성: {portfolio_data['volatility']}%
+- 목표 변동성: {target_volatility}%
+- 보유 종목:
+{json.dumps(portfolio_data['stocks'], ensure_ascii=False, indent=2)}
+
+## 요청사항
+목표 변동성({target_volatility}%)을 달성하기 위한 구체적인 리밸런싱 제안을 해주세요.
+
+다음 JSON 형식으로 답변하세요:
+{{
+    "current_status": "현재 상태 요약 (1문장)",
+    "suggestions": [
+        {{"stock": "종목명", "action": "매수/매도", "quantity": "수량", "reason": "이유"}}
+    ],
+    "expected_result": "리밸런싱 후 예상 결과 (1-2문장)"
+}}
+
+JSON 형식으로만 답변하세요.
+"""
         
-        result = response.json()
-        content = result.get('content', [])
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
         
-        if content and len(content) > 0:
-            text = content[0].get('text', '')
-            return _parse_ai_response(text)
+        if result_text.startswith('```'):
+            result_text = result_text.split('```')[1]
+            if result_text.startswith('json'):
+                result_text = result_text[4:]
         
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Claude API 오류: {e}")
-        return None
+        result = json.loads(result_text)
+        return result, None
+        
+    except Exception as e:
+        return None, str(e)
 
 
-def _parse_ai_response(text):
-    """AI 응답 파싱"""
-    # 간단한 파싱 - 전체 텍스트를 comment로, 개선 제안 부분을 suggestions로 추출
-    suggestions = []
-    
-    lines = text.split('\n')
-    for line in lines:
-        # 번호가 붙은 제안 추출 (예: "1. ...", "- ...")
-        line = line.strip()
-        if line and (line[0].isdigit() or line.startswith('-')):
-            # 제안 관련 키워드가 있으면 suggestions에 추가
-            if any(keyword in line for keyword in ['추가', '줄이', '늘리', '고려', '분산', '비중']):
-                # 앞의 번호나 대시 제거
-                suggestion = line.lstrip('0123456789.-) ').strip()
-                if suggestion:
-                    suggestions.append(suggestion)
-    
-    return {
-        "comment": text,
-        "suggestions": suggestions[:5]  # 최대 5개
-    }
+def explain_metrics(volatility, sharpe_ratio):
+    """변동성과 샤프비율에 대한 AI 설명"""
+    try:
+        prompt = f"""
+당신은 친절한 투자 교육자입니다. 초보 투자자도 이해할 수 있게 설명해주세요.
+
+## 현재 지표
+- 변동성: {volatility}%
+- 샤프비율: {sharpe_ratio}
+
+## 요청사항
+각 지표에 대해 다음을 설명해주세요:
+1. 현재 수치가 의미하는 것
+2. 좋은지 나쁜지 평가
+3. 개선 방법 (필요한 경우)
+
+다음 JSON 형식으로 답변하세요:
+{{
+    "volatility_explanation": "변동성 설명 (2-3문장)",
+    "sharpe_explanation": "샤프비율 설명 (2-3문장)",
+    "improvement_tip": "개선 팁 (1-2문장)"
+}}
+
+JSON 형식으로만 답변하세요.
+"""
+        
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
+        
+        if result_text.startswith('```'):
+            result_text = result_text.split('```')[1]
+            if result_text.startswith('json'):
+                result_text = result_text[4:]
+        
+        result = json.loads(result_text)
+        return result, None
+        
+    except Exception as e:
+        return None, str(e)
