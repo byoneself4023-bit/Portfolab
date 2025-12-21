@@ -37,3 +37,8 @@ def get_list():
 def update_all_prices():
     """전체 종목 현재가 일괄 업데이트"""
     return stock_controller.update_all_prices()
+
+@stock_bp.route('/update-history', methods=['POST'])
+def update_all_history():
+    """전체 종목 가격 히스토리 업데이트"""
+    return stock_controller.update_all_history()

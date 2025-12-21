@@ -109,3 +109,19 @@ def update_all_prices():
         "message": f"{result['updated']}개 종목 업데이트 완료",
         "data": result
     }), 200
+
+def update_all_history():
+    """전체 종목 가격 히스토리 업데이트"""
+    result, error = stock_service.update_all_price_history()
+    
+    if error:
+        return jsonify({
+            "success": False,
+            "message": error
+        }), 500
+    
+    return jsonify({
+        "success": True,
+        "message": f"{result['updated']}개 종목 히스토리 업데이트 완료",
+        "data": result
+    }), 200    

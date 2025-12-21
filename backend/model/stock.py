@@ -120,20 +120,26 @@ def get_price_history(stock_no, days=90):
         conn.close()
 
 
-def insert_price_history(stock_no, date, close_price):
+def insert_price_history(stock_no, date, open_price, high_price, low_price, close_price, volume):
     """가격 히스토리 추가"""
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             sql = """
-                INSERT INTO price_history (stock_no, date, close_price)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE close_price = VALUES(close_price)
+                INSERT INTO price_history (stock_no, date, open_price, high_price, low_price, close_price, volume)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE 
+                    open_price = VALUES(open_price),
+                    high_price = VALUES(high_price),
+                    low_price = VALUES(low_price),
+                    close_price = VALUES(close_price),
+                    volume = VALUES(volume)
             """
-            cursor.execute(sql, (stock_no, date, close_price))
+            cursor.execute(sql, (stock_no, date, open_price, high_price, low_price, close_price, volume))
             conn.commit()
             return True
-    except Exception:
+    except Exception as e:
+        print(f"insert_price_history error: {e}")
         return False
     finally:
         conn.close()

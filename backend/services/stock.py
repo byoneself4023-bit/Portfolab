@@ -102,3 +102,49 @@ def update_all_prices():
         return {"updated": updated, "failed": failed}, None
     except Exception as e:
         return None, str(e)
+
+def update_price_history(symbol, days=90):
+    """종목 가격 히스토리 업데이트"""
+    try:
+        stock = stock_model.find_by_symbol(symbol)
+        if not stock:
+            return None, "종목을 찾을 수 없습니다."
+        
+        history = kis_api.get_price_history(symbol, period="D", count=days)
+        if not history:
+            return None, "히스토리 조회 실패"
+        
+        # DB에 저장
+        for h in history:
+            stock_model.insert_price_history(
+                stock['stock_no'],
+                h['date'],
+                h['open_price'],
+                h['high_price'],
+                h['low_price'],
+                h['close_price'],
+                h['volume']
+            )
+        
+        return {"symbol": symbol, "count": len(history)}, None
+    except Exception as e:
+        return None, str(e)
+
+
+def update_all_price_history():
+    """전체 종목 가격 히스토리 업데이트"""
+    try:
+        stocks = stock_model.get_all_stocks()
+        updated = 0
+        failed = 0
+        
+        for stock in stocks:
+            result, error = update_price_history(stock['symbol'])
+            if result:
+                updated += 1
+            else:
+                failed += 1
+        
+        return {"updated": updated, "failed": failed}, None
+    except Exception as e:
+        return None, str(e)
