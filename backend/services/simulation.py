@@ -3,6 +3,7 @@ from model import portfolio_stock as ps_model
 from model import stock as stock_model
 from services import analysis as analysis_service
 from services import stock as stock_service
+from utils.calculations import calculate_returns, calculate_volatility, calculate_sharpe_ratio
 
 
 def simulate_changes(portfolio_no, changes):
@@ -131,17 +132,23 @@ def _calculate_simulated_summary(stocks):
 
 
 def _calculate_simulated_risk(stocks):
-    """시뮬레이션용 리스크 계산 (간소화 버전)"""
+    """
+    시뮬레이션용 리스크 계산
+    - price_history 데이터를 사용해서 실제 변동성/샤프비율 계산
+    """
     if not stocks:
         return {
             "portfolio_volatility": 0,
             "sharpe_ratio": 0
         }
     
-    # TODO: 실제 가격 히스토리 기반 계산으로 개선
-    # 현재는 DB에서 가져온 종목별 변동성의 가중평균으로 계산
-    
     total_value = sum(s['quantity'] * (s.get('current_price') or s['avg_price']) for s in stocks)
+    
+    if total_value == 0:
+        return {
+            "portfolio_volatility": 0,
+            "sharpe_ratio": 0
+        }
     
     weighted_vol = 0
     weighted_sharpe = 0
@@ -151,9 +158,28 @@ def _calculate_simulated_risk(stocks):
         value = s['quantity'] * current_price
         weight = value / total_value if total_value > 0 else 0
         
-        # 종목별 변동성 (DB에서 조회하거나 기본값 사용)
-        vol = s.get('volatility', 20)  # 기본 20%
-        sharpe = s.get('sharpe_ratio', 0.5)  # 기본 0.5
+        # price_history에서 실제 데이터 가져와서 계산
+        stock_no = s.get('stock_no')
+        if stock_no:
+            history = stock_model.get_price_history(stock_no, days=90)
+            
+            if history and len(history) > 1:
+                prices = [h['close_price'] for h in history]
+                returns = calculate_returns(prices)
+                
+                if returns:
+                    vol = calculate_volatility(returns) * 100  # 퍼센트로 변환
+                    sharpe = calculate_sharpe_ratio(returns)
+                else:
+                    vol = 15
+                    sharpe = 0.3
+            else:
+                # 히스토리 데이터가 없으면 기본값 사용
+                vol = 15
+                sharpe = 0.3
+        else:
+            vol = 15
+            sharpe = 0.3
         
         weighted_vol += weight * vol
         weighted_sharpe += weight * sharpe
