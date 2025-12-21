@@ -1,0 +1,22 @@
+# Flask
+flask==3.0.0
+flask-cors==4.0.0
+
+# Database
+pymysql==1.1.0
+
+# Authentication
+bcrypt==4.1.2
+pyjwt==2.8.0
+
+# HTTP requests (한투 API, Claude API)
+requests==2.31.0
+
+# Math calculations
+numpy==1.26.2
+
+# Production server
+gunicorn
+
+# Environment variables
+python-dotenv==1.0.0
