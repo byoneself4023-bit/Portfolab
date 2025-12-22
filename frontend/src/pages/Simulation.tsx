@@ -408,7 +408,7 @@ export default function Simulation() {
                       <h4 className="text-sm font-medium text-emerald-400 mb-3">리밸런싱 제안</h4>
                       <div className="space-y-3">
                         {rebalanceSuggestion.suggestions.map((s, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white/[0.02] p-3 rounded-lg">
+                          <div key={i} className="bg-white/[0.02] p-4 rounded-lg space-y-2">
                             <div className="flex items-center gap-3">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
                                 s.action === '매수' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
@@ -418,7 +418,7 @@ export default function Simulation() {
                               <span className="text-white font-medium">{s.stock}</span>
                               <span className="text-white/60 text-sm">{s.quantity}</span>
                             </div>
-                            <span className="text-white/40 text-xs max-w-[200px] text-right">{s.reason}</span>
+                            <p className="text-white/50 text-xs leading-relaxed">{s.reason}</p>
                           </div>
                         ))}
                       </div>
