@@ -2,6 +2,8 @@
 from flask import request, jsonify
 from services import simulation as simulation_service
 from services import portfolio as portfolio_service
+from services.optimizer import markowitz_optimize          # 추가
+from services.monte_carlo import run_simulation as mc_simulation  # 추가
 from middleware.auth_utils import require_auth
 
 
@@ -46,3 +48,29 @@ def preview(portfolio_no):
         "success": True,
         "data": result
     }), 200
+
+def optimize(portfolio_no):
+    """마코위츠 최적화"""
+    # 테스트용: 인증 임시 제거
+    try:
+        result = markowitz_optimize(portfolio_no)
+        if "error" in result:
+            return jsonify({"success": False, "message": result["error"]}), 400
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+def monte_carlo(portfolio_no):
+    """몬테카를로 시뮬레이션"""
+    # 테스트용: 인증 임시 제거
+    try:
+        years = request.args.get('years', 10, type=int)
+        simulations = request.args.get('simulations', 1000, type=int)
+        
+        result = mc_simulation(portfolio_no, years, simulations)
+        if "error" in result:
+            return jsonify({"success": False, "message": result["error"]}), 400
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500

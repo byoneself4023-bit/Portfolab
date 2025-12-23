@@ -27,3 +27,20 @@ def preview(portfolio_no):
     }
     """
     return simulation_controller.preview(portfolio_no)
+
+@simulation_bp.route('/<int:portfolio_no>/optimize', methods=['GET'])
+def optimize(portfolio_no):
+    """마코위츠 최적 포트폴리오 계산"""
+    return simulation_controller.optimize(portfolio_no)
+
+
+@simulation_bp.route('/<int:portfolio_no>/monte-carlo', methods=['GET'])
+def monte_carlo(portfolio_no):
+    """
+    몬테카를로 시뮬레이션
+    
+    Query Params:
+    - years: 시뮬레이션 기간 (기본 10년)
+    - simulations: 시뮬레이션 횟수 (기본 1000회)
+    """
+    return simulation_controller.monte_carlo(portfolio_no)

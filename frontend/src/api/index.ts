@@ -66,6 +66,14 @@ export const portfolioAPI = {
 export const simulationAPI = {
   preview: (portfolioNo: number, changes: any[]) =>
     api.post(`/simulation/${portfolioNo}/preview`, { changes }),
+  
+  // Markowitz 최적화
+  optimize: (portfolioNo: number) =>
+    api.get(`/simulation/${portfolioNo}/optimize`),
+  
+  // Monte Carlo 시뮬레이션
+  monteCarlo: (portfolioNo: number, years: number = 10, simulations: number = 1000) =>
+    api.get(`/simulation/${portfolioNo}/monte-carlo?years=${years}&simulations=${simulations}`),
 };
 
 // AI API

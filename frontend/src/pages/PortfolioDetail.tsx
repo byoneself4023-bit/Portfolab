@@ -310,7 +310,7 @@ export default function PortfolioDetail() {
                   <option value="">종목을 선택하세요</option>
                   {allStocks.map((stock) => (
                     <option key={stock.stock_no} value={stock.stock_no}>
-                      {stock.name} ({stock.symbol})
+                      {stock.name} ({stock.symbol}) - {stock.current_price?.toLocaleString()}원
                     </option>
                   ))}
                 </select>

@@ -22,3 +22,5 @@ gunicorn
 python-dotenv==1.0.0
 
 google-generativeai
+
+scipy
